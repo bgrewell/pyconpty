@@ -1,6 +1,7 @@
+import time
 from threading import Thread
 from win32.native import *
-
+from  ctypes import *
 
 class ConPty(Thread):
 
@@ -51,7 +52,7 @@ class ConPty(Thread):
         print('closed handles')
 
         if not hr == S_OK:
-            print("oops, something went wrong...create pseudoconsole failed")
+            print('oops, something went wrong...create pseudoconsole failed')
 
         # Initialize startup info
         self._startupInfoEx = STARTUPINFOEX()
@@ -71,14 +72,14 @@ class ConPty(Thread):
                             None,                                        # _In_opt_      LPCTSTR
                             byref(self._startupInfoEx.StartupInfo),      # _In_          LPSTARTUPINFO
                             byref(self._lpProcessInformation))           # _Out_
-        print(f'created {self._cmd} process')
+        print('created ' + self._cmd + ' process')
 
         # Check if process is up
         if hr == 0x0:
-            print(f"oops, failed to execute {self._cmd}: {hr}")
+            print('oops, failed to execute ' + self._cmd + ': ' + str(hr))
 
         WaitForSingleObject(self._lpProcessInformation.hThread, 10 * 1000)
-        print("finished init")
+        print('finished init')
 
     def __initStartupInfoExAttachedToPseudoConsole(self):
         dwAttributeCount = 1
@@ -98,7 +99,7 @@ class ConPty(Thread):
                 raise
 
         mem = HeapAlloc(GetProcessHeap(), 0, lpSize.value)
-        self._startupInfoEx.lpAttributeList = ctypes.cast(mem, ctypes.POINTER(c_void_p))
+        self._startupInfoEx.lpAttributeList = cast(mem, POINTER(c_void_p))
 
         ok = InitializeProcThreadAttributeList(self._startupInfoEx.lpAttributeList, dwAttributeCount, dwFlags, byref(lpSize))
         if ok == 0x0:
@@ -111,11 +112,11 @@ class ConPty(Thread):
 
     def close(self):
         # cleanup
-        CloseHandle(self._ptyIn)
-        CloseHandle(self._ptyOut)
+        CloseHandle(self._cmdIn)
+        CloseHandle(self._cmdOut)
         DeleteProcThreadAttributeList(self._startupInfoEx.lpAttributeList)
         HeapFree(GetProcessHeap(), 0, self._mem)
-        ClosePseudoConsole(self._hpc)
+        ClosePseudoConsole(self._hPC)
         CloseHandle(self._lpProcessInformation.hThread)
         CloseHandle(self._lpProcessInformation.hProcess)
 
@@ -130,7 +131,7 @@ class ConPty(Thread):
                  NULL_PTR                       # Not used
                  )
         if hr == 0x0:
-            print(f'failed to read: {hr}')
+            print('failed to read: ' + str(hr))
         return lpBuffer.raw[:lpNumberOfBytesRead.value]
 
     def write(self, data):
@@ -142,15 +143,15 @@ class ConPty(Thread):
                   lpNumberOfBytesWritten,       # Number of bytes written
                   NULL_PTR)                     # Not used
         if hr == 0x0:
-            print(f'failed to write: {hr}')
-        print(f'wrote_size: {lpNumberOfBytesWritten.value}')
+            print('failed to write: ' + str(hr))
+        print('wrote_size: ' + str(lpNumberOfBytesWritten.value))
 
 
 if __name__ == '__main__':
 
     # Create a cmd.exe pty
     print("[!] creating pty")
-    pty = ConPty("cmd.exe", 80, 60)
+    pty = ConPty("c:\\windows\\system32\\cmd.exe", 80, 60)
     pty.start()
     time.sleep(1)
     print("[!] pty created")

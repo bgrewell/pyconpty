@@ -1,8 +1,4 @@
-import threading
-import time
-from _winapi import GENERIC_READ, OPEN_EXISTING, GENERIC_WRITE
-from ctypes import Structure, byref, sizeof, POINTER, windll, c_void_p, c_char_p, c_size_t, wintypes, HRESULT, \
-    create_string_buffer
+from ctypes import Structure, POINTER, windll, c_void_p, c_char_p, c_size_t, HRESULT, WinError, wintypes
 from ctypes.wintypes import *
 
 PVOID = LPVOID
@@ -12,9 +8,12 @@ LPBYTE = c_char_p
 SIZE_T = c_size_t
 HPCON = HANDLE
 
+if not hasattr(wintypes, 'LPDWORD'): # PY2
+    wintypes.LPDWORD = POINTER(wintypes.DWORD)
+
 def _errcheck_bool(value, func, args):
     if not value:
-        raise ctypes.WinError()
+        raise WinError()
     return args
 
 
@@ -168,10 +167,10 @@ TerminateProcess.errcheck = _errcheck_bool
 #   HANDLE hHandle,
 #   DWORD  dwMilliseconds
 # );
-WaitForSingleObject = ctypes.windll.kernel32.WaitForSingleObject
-WaitForSingleObject.restype = ctypes.wintypes.DWORD
+WaitForSingleObject = windll.kernel32.WaitForSingleObject
+WaitForSingleObject.restype = DWORD
 WaitForSingleObject.argtypes = (
-    ctypes.wintypes.HANDLE,
+    HANDLE,
     DWORD
 )
 
@@ -182,7 +181,7 @@ WaitForSingleObject.argtypes = (
 GetStdHandle = windll.kernel32.GetStdHandle
 GetStdHandle.argtype = [
     DWORD,
-    ctypes.wintypes.HANDLE,
+    HANDLE,
 ]
 GetStdHandle.restype = BOOL
 
@@ -196,11 +195,11 @@ GetStdHandle.restype = HANDLE
 # BOOL CloseHandle(
 #   HANDLE hObject
 # );
-CloseHandle = ctypes.windll.kernel32.CloseHandle
+CloseHandle = windll.kernel32.CloseHandle
 CloseHandle.argtypes = (
     HANDLE,  # hObject
 )
-CloseHandle.restype = ctypes.wintypes.BOOL
+CloseHandle.restype = BOOL
 CloseHandle.errcheck = _errcheck_bool
 
 # BOOL WINAPI CreatePipe(
@@ -243,14 +242,14 @@ CreateFileW.argtype = [
 #   LPOVERLAPPED lpOverlapped
 # );
 
-ReadFile = ctypes.windll.kernel32.ReadFile
-ReadFile.restype = ctypes.wintypes.BOOL
+ReadFile = windll.kernel32.ReadFile
+ReadFile.restype = BOOL
 ReadFile.errcheck = _errcheck_bool
 ReadFile.argtypes = (
     HANDLE,  # hObject
     LPVOID,
     DWORD,
-    LPDWORD,
+    wintypes.LPDWORD,
     POINTER(c_void_p)
 )
 
@@ -261,14 +260,14 @@ ReadFile.argtypes = (
 #   LPDWORD      lpNumberOfBytesWritten,
 #   LPOVERLAPPED lpOverlapped
 # );
-WriteFile = ctypes.windll.kernel32.WriteFile
-WriteFile.restype = ctypes.wintypes.BOOL
+WriteFile = windll.kernel32.WriteFile
+WriteFile.restype = BOOL
 WriteFile.errcheck = _errcheck_bool
 WriteFile.argtypes = (
     HANDLE,
     LPCVOID,
     DWORD,
-    LPDWORD,
+    wintypes.LPDWORD,
     POINTER(c_void_p)
 )
 
@@ -303,7 +302,7 @@ SetConsoleMode.errcheck = _errcheck_bool
 #   _Out_ LPDWORD lpMode
 # );
 GetConsoleMode = windll.kernel32.GetConsoleMode
-GetConsoleMode.argtype = [HANDLE, LPDWORD]
+GetConsoleMode.argtype = [HANDLE, wintypes.LPDWORD]
 GetConsoleMode.restype = BOOL
 # GetConsoleMode.errcheck = _errcheck_bool
 
