@@ -1,21 +1,19 @@
 import sys
 import time
-from threading import Thread
 from win32.native import *
-from  ctypes import *
+from ctypes import *
 
-class ConPty(Thread):
+
+class ConPty():
 
     def __init__(self, cmd, cols, rows):
-        # Call the Thread class's init function
-        Thread.__init__(self)
 
         # Setup handles
         self._hPC = HPCON()                                     # handle to the pseudoconsole device
-        self._ptyIn = wintypes.HANDLE(INVALID_HANDLE_VALUE)     # handle used to communicate with the pseudoconsole
-        self._ptyOut = wintypes.HANDLE(INVALID_HANDLE_VALUE)    # handle used to communicate with the pseudocnosole
-        self._cmdIn = wintypes.HANDLE(INVALID_HANDLE_VALUE)     #
-        self._cmdOut = wintypes.HANDLE(INVALID_HANDLE_VALUE)    #
+        self._ptyIn = wintypes.HANDLE(INVALID_HANDLE_VALUE)     # handle passed into the pseudoconsole
+        self._ptyOut = wintypes.HANDLE(INVALID_HANDLE_VALUE)    # handle passed into the pseudoconsole
+        self._cmdIn = wintypes.HANDLE(INVALID_HANDLE_VALUE)     # handle used to send input to the pseudoconsole
+        self._cmdOut = wintypes.HANDLE(INVALID_HANDLE_VALUE)    # handle used to read output from the pseudocnsole
 
         # Set command
         self._cmd = cmd
@@ -26,7 +24,10 @@ class ConPty(Thread):
         self._consoleSize = COORD()
         self._mem = None
 
-    def run(self):
+        # Initialize
+        self.init()
+
+    def init(self):
         # Create pipes
         CreatePipe(byref(self._ptyIn),  # HANDLE read pipe
                    byref(self._cmdIn),  # HANDLE write pipe
@@ -80,7 +81,7 @@ class ConPty(Thread):
         if hr == 0x0:
             print('error: failed to execute ' + self._cmd + ': ' + str(hr))
 
-        WaitForSingleObject(self._lpProcessInformation.hThread, 10 * 1000)
+        WaitForSingleObject(self._lpProcessInformation.hThread, 500)
 
     def __initStartupInfoExAttachedToPseudoConsole(self):
         dwAttributeCount = 1
@@ -165,7 +166,7 @@ if __name__ == '__main__':
     # Create a cmd.exe pty
     print("[!] creating pty")
     pty = ConPty("cmd.exe", 80, 60)
-    pty.start()
+    #pty.start()
     time.sleep(1)
     print("[!] pty created")
     output = pty.read()
