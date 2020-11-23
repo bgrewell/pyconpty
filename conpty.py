@@ -27,29 +27,24 @@ class ConPty(Thread):
                    byref(self._cmdIn),  # HANDLE write pipe
                    None,                # LPSECURITY_ATTRIBUTES pipe attributes
                    0)                   # DWORD size of buffer for the pipe. 0 = default size
-        print('created input pipe')
 
         CreatePipe(byref(self._cmdOut), # HANDLE read pipe
                    byref(self._ptyOut), # HANDLE write pipe
                    None,                # LPSECURITY_ATTRIBUTES pipe attributes
                    0)                   # DWORD size of buffer for the pipe. 0 = default size
-        print('created output pipe')
 
         # Create pseudo console
         self._consoleSize.X = self._cols
         self._consoleSize.Y = self._rows
-        print('setting console dimensions')
         hr = CreatePseudoConsole(self._consoleSize,  # ConPty Dimensions
                                  self._ptyIn,        # ConPty Input
                                  self._ptyOut,       # ConPty Output
                                  DWORD(0),           # Flags
                                  byref(self._hPC))   # ConPty Reference
-        print('created pseudoconsole')
 
         # Close the handles
         CloseHandle(self._ptyIn)        # Close the handles as they are now dup'ed into the ConHost
         CloseHandle(self._ptyOut)       # Close the handles as they are now dup'ed into the ConHost
-        print('closed handles')
 
         if not hr == S_OK:
             print('oops, something went wrong...create pseudoconsole failed')
@@ -59,10 +54,9 @@ class ConPty(Thread):
         self._startupInfoEx.StartupInfo.cb = sizeof(STARTUPINFOEX)
         self.__initStartupInfoExAttachedToPseudoConsole()
         self._lpProcessInformation = PROCESS_INFORMATION()
-        print('created startup info')
 
         # Create process
-        hr = CreateProcessW(None,                                        # _In_opt_      LPCTSTR
+        hr = CreateProcess(None,                                        # _In_opt_      LPCTSTR
                             self._cmd,                                   # _Inout_opt_   LPTSTR
                             None,                                        # _In_opt_      LPSECURITY_ATTRIBUTES
                             None,                                        # _In_opt_      LPSECURITY_ATTRIBUTES
@@ -72,14 +66,12 @@ class ConPty(Thread):
                             None,                                        # _In_opt_      LPCTSTR
                             byref(self._startupInfoEx.StartupInfo),      # _In_          LPSTARTUPINFO
                             byref(self._lpProcessInformation))           # _Out_
-        print('created ' + self._cmd + ' process')
 
         # Check if process is up
         if hr == 0x0:
             print('oops, failed to execute ' + self._cmd + ': ' + str(hr))
 
         WaitForSingleObject(self._lpProcessInformation.hThread, 10 * 1000)
-        print('finished init')
 
     def __initStartupInfoExAttachedToPseudoConsole(self):
         dwAttributeCount = 1
@@ -124,15 +116,34 @@ class ConPty(Thread):
         MAX_READ = 1024*8
         lpBuffer = create_string_buffer(MAX_READ)
         lpNumberOfBytesRead = DWORD()
-        hr = ReadFile(self._cmdOut,              # Handle to the file or i/o device
-                 lpBuffer,                      # Pointer to the buffer that receive the data from the device
-                 MAX_READ,                      # Maximum number of bytes to read
-                 byref(lpNumberOfBytesRead),    # Number of bytes read from the device
-                 NULL_PTR                       # Not used
-                 )
-        if hr == 0x0:
-            print('failed to read: ' + str(hr))
-        return lpBuffer.raw[:lpNumberOfBytesRead.value]
+        lpNumberOfBytesAvail = DWORD()
+        lpBytesLeftInMessage = DWORD()
+
+        #   HANDLE  hNamedPipe,
+        #   LPVOID  lpBuffer,
+        #   DWORD   nBufferSize,
+        #   LPDWORD lpBytesRead,
+        #   LPDWORD lpTotalBytesAvail,
+        #   LPDWORD lpBytesLeftThisMessage
+        hr = PeekNamedPipe(self._cmdOut,
+                           lpBuffer,
+                           MAX_READ,
+                           byref(lpNumberOfBytesRead),
+                           byref(lpNumberOfBytesAvail),
+                           byref(lpBytesLeftInMessage))
+
+        if not hr == 0x0 and lpNumberOfBytesAvail.value > 0:
+            hr = ReadFile(self._cmdOut,              # Handle to the file or i/o device
+                     lpBuffer,                      # Pointer to the buffer that receive the data from the device
+                     MAX_READ,                      # Maximum number of bytes to read
+                     byref(lpNumberOfBytesRead),    # Number of bytes read from the device
+                     NULL_PTR                       # Not used
+                     )
+            if hr == 0x0:
+                print('failed to read: ' + str(hr))
+            return lpBuffer.raw[:lpNumberOfBytesRead.value]
+        else:
+            return ""
 
     def write(self, data):
         lpBuffer = create_string_buffer(data.encode('utf-8'))
@@ -144,7 +155,6 @@ class ConPty(Thread):
                   NULL_PTR)                     # Not used
         if hr == 0x0:
             print('failed to write: ' + str(hr))
-        print('wrote_size: ' + str(lpNumberOfBytesWritten.value))
 
 
 if __name__ == '__main__':
@@ -156,12 +166,14 @@ if __name__ == '__main__':
     time.sleep(1)
     print("[!] pty created")
     output = pty.read()
-    print(output)
+    print('output1: ' + output)
     time.sleep(10)
     pty.write("whoami\r\n")
     time.sleep(10)
     output2 = pty.read()
-    print(output2)
+    print('output2: ' + output2)
     time.sleep(10)
+    output3 = pty.read()
+    print('output3: ' + output3)
     print('[!] cleanup')
     pty.close()

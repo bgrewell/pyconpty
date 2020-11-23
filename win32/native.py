@@ -234,6 +234,26 @@ CreateFileW.argtype = [
     HANDLE
 ]
 
+# BOOL PeekNamedPipe(
+#   HANDLE  hNamedPipe,
+#   LPVOID  lpBuffer,
+#   DWORD   nBufferSize,
+#   LPDWORD lpBytesRead,
+#   LPDWORD lpTotalBytesAvail,
+#   LPDWORD lpBytesLeftThisMessage
+# );
+PeekNamedPipe = windll.kernel32.PeekNamedPipe
+PeekNamedPipe.restype = BOOL
+PeekNamedPipe.errcheck = _errcheck_bool
+PeekNamedPipe.argtypes = (
+    HANDLE,
+    LPVOID,
+    DWORD,
+    wintypes.LPDWORD,
+    wintypes.LPDWORD,
+    wintypes.LPDWORD
+)
+
 # BOOL ReadFile(
 #   HANDLE       hFile,
 #   LPVOID       lpBuffer,
