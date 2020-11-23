@@ -1,3 +1,4 @@
+import sys
 import time
 from threading import Thread
 from win32.native import *
@@ -15,7 +16,11 @@ class ConPty(Thread):
         self._ptyOut = wintypes.HANDLE(INVALID_HANDLE_VALUE)    # handle used to communicate with the pseudocnosole
         self._cmdIn = wintypes.HANDLE(INVALID_HANDLE_VALUE)     #
         self._cmdOut = wintypes.HANDLE(INVALID_HANDLE_VALUE)    #
+
+        # Set command
         self._cmd = cmd
+
+        # Set console dimensions
         self._cols = cols
         self._rows = rows
         self._consoleSize = COORD()
@@ -47,7 +52,7 @@ class ConPty(Thread):
         CloseHandle(self._ptyOut)       # Close the handles as they are now dup'ed into the ConHost
 
         if not hr == S_OK:
-            print('oops, something went wrong...create pseudoconsole failed')
+            print('error: create pseudoconsole failed')
 
         # Initialize startup info
         self._startupInfoEx = STARTUPINFOEX()
@@ -56,7 +61,11 @@ class ConPty(Thread):
         self._lpProcessInformation = PROCESS_INFORMATION()
 
         # Create process
-        hr = CreateProcess(None,                                        # _In_opt_      LPCTSTR
+        if sys.version_info[0] < 3:
+            CreateProcessFunc = CreateProcess
+        else:
+            CreateProcessFunc = CreateProcessW
+        hr = CreateProcessFunc(None,                                     # _In_opt_      LPCTSTR
                             self._cmd,                                   # _Inout_opt_   LPTSTR
                             None,                                        # _In_opt_      LPSECURITY_ATTRIBUTES
                             None,                                        # _In_opt_      LPSECURITY_ATTRIBUTES
@@ -69,7 +78,7 @@ class ConPty(Thread):
 
         # Check if process is up
         if hr == 0x0:
-            print('oops, failed to execute ' + self._cmd + ': ' + str(hr))
+            print('error: failed to execute ' + self._cmd + ': ' + str(hr))
 
         WaitForSingleObject(self._lpProcessInformation.hThread, 10 * 1000)
 
@@ -82,7 +91,7 @@ class ConPty(Thread):
         try:
             ok = InitializeProcThreadAttributeList(None, dwAttributeCount, dwFlags, byref(lpSize))
             if ok == 0x0:
-                print('failed to call InitializeProcThreadAttributeList')
+                print('error: failed to call InitializeProcThreadAttributeList')
         except WindowsError as err:
             if err.winerror == 122:
                 # the data area passed to the system call is too small.
@@ -95,12 +104,12 @@ class ConPty(Thread):
 
         ok = InitializeProcThreadAttributeList(self._startupInfoEx.lpAttributeList, dwAttributeCount, dwFlags, byref(lpSize))
         if ok == 0x0:
-            print('failed to call InitializeProcThreadAttributeList')
+            print('error: failed to call InitializeProcThreadAttributeList')
         ok = UpdateProcThreadAttribute(self._startupInfoEx.lpAttributeList, DWORD(0), DWORD(PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE),
                                   self._hPC, sizeof(self._hPC), None, None)
 
         if ok == 0x0:
-            print('failed to call UpdateProcThreadAttribute')
+            print('error: failed to call UpdateProcThreadAttribute')
 
     def close(self):
         # cleanup
@@ -119,12 +128,6 @@ class ConPty(Thread):
         lpNumberOfBytesAvail = DWORD()
         lpBytesLeftInMessage = DWORD()
 
-        #   HANDLE  hNamedPipe,
-        #   LPVOID  lpBuffer,
-        #   DWORD   nBufferSize,
-        #   LPDWORD lpBytesRead,
-        #   LPDWORD lpTotalBytesAvail,
-        #   LPDWORD lpBytesLeftThisMessage
         hr = PeekNamedPipe(self._cmdOut,
                            lpBuffer,
                            MAX_READ,
@@ -133,7 +136,7 @@ class ConPty(Thread):
                            byref(lpBytesLeftInMessage))
 
         if not hr == 0x0 and lpNumberOfBytesAvail.value > 0:
-            hr = ReadFile(self._cmdOut,              # Handle to the file or i/o device
+            hr = ReadFile(self._cmdOut,             # Handle to the file or i/o device
                      lpBuffer,                      # Pointer to the buffer that receive the data from the device
                      MAX_READ,                      # Maximum number of bytes to read
                      byref(lpNumberOfBytesRead),    # Number of bytes read from the device
@@ -161,19 +164,19 @@ if __name__ == '__main__':
 
     # Create a cmd.exe pty
     print("[!] creating pty")
-    pty = ConPty("c:\\windows\\system32\\cmd.exe", 80, 60)
+    pty = ConPty("cmd.exe", 80, 60)
     pty.start()
     time.sleep(1)
     print("[!] pty created")
     output = pty.read()
-    print('output1: ' + output)
+    print('output1: ' + str(output))
     time.sleep(10)
     pty.write("whoami\r\n")
     time.sleep(10)
     output2 = pty.read()
-    print('output2: ' + output2)
+    print('output2: ' + str(output2))
     time.sleep(10)
     output3 = pty.read()
-    print('output3: ' + output3)
+    print('output3: ' + str(output3))
     print('[!] cleanup')
     pty.close()
